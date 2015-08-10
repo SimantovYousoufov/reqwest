@@ -1,31 +1,25 @@
+/*!
+  * Reqwest! A general purpose XHR connection manager
+  * license MIT (c) Dustin Diaz 2014
+  * https://github.com/ded/reqwest
+  */
+
 !function (name, context, definition) {
   if (typeof module != 'undefined' && module.exports) module.exports = definition()
   else if (typeof define == 'function' && define.amd) define(definition)
   else context[name] = definition()
 }('reqwest', this, function () {
 
-  var context = this
-
-  if ('window' in context) {
-    var doc = document
-      , byTag = 'getElementsByTagName'
-      , head = doc[byTag]('head')[0]
-  } else {
-    var XHR2
-    try {
-      XHR2 = require('xhr2')
-    } catch (ex) {
-      throw new Error('Peer dependency `xhr2` required! Please npm install xhr2')
-    }
-  }
-
-
-  var httpsRe = /^http/
+  var win = window
+    , doc = document
+    , httpsRe = /^http/
     , protocolRe = /(^\w+):\/\//
     , twoHundo = /^(20\d|1223)$/ //http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
+    , byTag = 'getElementsByTagName'
     , readyState = 'readyState'
     , contentType = 'Content-Type'
     , requestedWith = 'X-Requested-With'
+    , head = doc[byTag]('head')[0]
     , uniqid = 0
     , callbackPrefix = 'reqwest_' + (+new Date())
     , lastValue // data stored by the most recent JSONP callback
@@ -55,18 +49,16 @@
     , xhr = function(o) {
         // is it x-domain
         if (o['crossOrigin'] === true) {
-          var xhr = context[xmlHttpRequest] ? new XMLHttpRequest() : null
+          var xhr = win[xmlHttpRequest] ? new XMLHttpRequest() : null
           if (xhr && 'withCredentials' in xhr) {
             return xhr
-          } else if (context[xDomainRequest]) {
+          } else if (win[xDomainRequest]) {
             return new XDomainRequest()
           } else {
             throw new Error('Browser does not support cross-origin requests')
           }
-        } else if (context[xmlHttpRequest]) {
+        } else if (win[xmlHttpRequest]) {
           return new XMLHttpRequest()
-        } else if (XHR2) {
-          return new XHR2()
         } else {
           return new ActiveXObject('Microsoft.XMLHTTP')
         }
@@ -78,9 +70,9 @@
       }
 
   function succeed(r) {
-    var protocol = protocolRe.exec(r.url)
-    protocol = (protocol && protocol[1]) || context.location.protocol
-    return httpsRe.test(protocol) ? twoHundo.test(r.request.status) : !!r.request.response
+    var protocol = protocolRe.exec(r.url);
+    protocol = (protocol && protocol[1]) || window.location.protocol;
+    return httpsRe.test(protocol) ? twoHundo.test(r.request.status) : !!r.request.response;
   }
 
   function handleReadyState(r, success, error) {
@@ -148,7 +140,7 @@
       url = urlappend(url, cbkey + '=' + cbval) // no callback details, add 'em
     }
 
-    context[cbval] = generalCallback
+    win[cbval] = generalCallback
 
     script.type = 'text/javascript'
     script.src = url
@@ -193,7 +185,7 @@
       , method = (o['method'] || 'GET').toUpperCase()
       , url = typeof o === 'string' ? o : o['url']
       // convert non-string objects to query-string form unless o['processData'] is false
-      , data = (o['processData'] !== false && o['data'] && typeof o['data'] !== 'string')
+      , data = (o['processData'] !== false && o['data'] && typeof o['data'] !== 'string') && ! o['data'] instanceof FormData
         ? reqwest.toQueryString(o['data'])
         : (o['data'] || null)
       , http
@@ -215,7 +207,7 @@
     http.open(method, url, o['async'] === false ? false : true)
     setHeaders(http, o)
     setCredentials(http, o)
-    if (context[xDomainRequest] && http instanceof context[xDomainRequest]) {
+    if (win[xDomainRequest] && http instanceof win[xDomainRequest]) {
         http.onload = fn
         http.onerror = err
         // NOTE: see
@@ -245,7 +237,6 @@
 
   function setType(header) {
     // json, javascript, text/plain, text/html, xml
-    if (header === null) return undefined; //In case of no content-type.
     if (header.match('json')) return 'json'
     if (header.match('javascript')) return 'js'
     if (header.match('text')) return 'html'
@@ -321,7 +312,7 @@
         switch (type) {
         case 'json':
           try {
-            resp = context.JSON ? context.JSON.parse(r) : eval('(' + r + ')')
+            resp = win.JSON ? win.JSON.parse(r) : eval('(' + r + ')')
           } catch (err) {
             return error(resp, 'Could not parse JSON in response', err)
           }
@@ -356,7 +347,7 @@
 
     function timedOut() {
       self._timedOut = true
-      self.request.abort()
+      self.request.abort()      
     }
 
     function error(resp, msg, t) {
